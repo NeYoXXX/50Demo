@@ -1,0 +1,23 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+
+html, body{
+    height: 100%;
+}
+
+.container{
+    display: flex;
+    height: 100%;
+}
+
+.panel{
+    border-radius: 30px;
+    margin: 40px 20px;
+    transition: flex 2s ease;
+}
+
+.active{
+    flex: 3;  
+}
