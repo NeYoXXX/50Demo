@@ -1,23 +1,67 @@
 *{
-    margin: 0;
-    padding: 0;
+    box-sizing: border-box;
 }
 
-html, body{
-    height: 100%;
+body{
+    /* todo：flex布局 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin: 0;
+    height: 100vh;
 }
 
 .container{
     display: flex;
-    height: 100%;
+    width: 90vw;
 }
 
 .panel{
-    border-radius: 30px;
-    margin: 40px 20px;
-    transition: flex 2s ease;
+    background-size: cover;
+    /* 背景图片位置 */
+    background-position: center;
+    /* 背景图片重复方式 */
+    background-repeat: no-repeat;
+    height: 80vh;
+    border-radius: 50px;
+    margin: 10px;
+    /* 过度样式 */
+    transition: flex 1s ease-in;
+    color: #fff;
+    /* 光标样式 */
+    cursor: pointer;
+    flex: 0.5;
+    position: relative;
 }
 
-.active{
-    flex: 3;  
+.panel.active{
+    flex: 5;  
+}
+
+.panel h3{
+    font-size: 24px;
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    margin: 0;
+    opacity: 0;
+}
+
+.panel.active h3{
+    /* 不透明度 */
+    opacity: 1;
+    transition: opacity 1s ease-in;
+}
+
+/* max-width是一个范围值，如 max-width:480px，等同于width小于等于480px*/
+@media (max-width:480px){
+    .container{
+        width: 100vw;
+    }
+
+    .panel:nth-of-type(4),
+    .panel:nth-of-type(5){
+        display: none;
+    }
 }
