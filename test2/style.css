@@ -1,6 +1,12 @@
 *{
     box-sizing: border-box;
 }
+
+:root{
+    --line-border-fill: #3498db;
+    --line-border-empty: #e0e0e0;
+}
+
 html,body{
     margin: 0;
     padding: 0;
@@ -8,29 +14,45 @@ html,body{
 
 body{
     height: 100vh;
+    /* 这里使用flex是为了垂直居中 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .container{
     margin: 0 auto;
-    width: 300px;
-    height: 200px;
+    /* height: 200px; */
 }
 
 .progress-container{
     position: relative;
     display: flex;
     justify-content: space-between;
-    height: 100%;
+    width: 300px;
+    max-width: 100%;
 }
 
-.progress{
+/* .progress{
     position: absolute;
     height: 4px;
     background-color: black;
     left: 0;
     z-index: -100;
-    width: 100px;
-}
+    transform: translateY(-50%);
+} */
+
+.progress {
+    background-color: var(--line-border-fill);
+    position: absolute;
+    top: 50%;
+    left: 0;
+    /* transform: translateY(-50%); */
+    height: 4px;
+    width: 0%;
+    z-index: -1;
+    transition: width 0.4s ease;
+  }
 
 .circle{
     width: 40px;
