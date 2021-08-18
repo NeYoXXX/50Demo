@@ -33,21 +33,14 @@ body{
     max-width: 100%;
 }
 
-/* .progress{
-    position: absolute;
-    height: 4px;
-    background-color: black;
-    left: 0;
-    z-index: -100;
-    transform: translateY(-50%);
-} */
-
 .progress {
     background-color: var(--line-border-fill);
     position: absolute;
+    /* 放在中心位置 */
     top: 50%;
     left: 0;
-    /* transform: translateY(-50%); */
+    /* 这不知道有什么作用 */
+    transform: translateY(-50%);
     height: 4px;
     width: 0%;
     z-index: -1;
