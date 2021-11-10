@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        main{
+            scroll-snap-type: y mandatory;
+            overflow: scroll;
+            height: 100vh;
+        }
+        section{
+            text-align: center;
+            line-height: 100vh;
+            font-size: 5rem;
+            width: 100vw;
+            height: 100vh;
+            scroll-snap-align: start;
+        }
+        section:nth-child(1){
+            background-color: rgb(127, 240, 255);
+        }
+        section:nth-child(2){
+            background-color: rgb(255, 127, 127);
+        }
+        section:nth-child(3){
+            background-color: rgb(182, 127, 255);
+        }
+        section:nth-child(4){
+            background-color: rgb(255, 127, 191);
+        }
+        section:nth-child(5){
+            background-color: rgb(255, 200, 127);
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section>页面内容1</section>
+        <section>页面内容2</section>
+        <section>页面内容3</section>
+        <section>页面内容4</section>
+        <section>页面内容5</section>
+    </main>
+</body>
+</html>
