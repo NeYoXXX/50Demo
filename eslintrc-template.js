@@ -1,6 +1,9 @@
 // eslint 官网：https://eslint.org/
 //直接跳过eslint 检测在代码上方添加// eslint-disable-next-line no-undef 注释
 // 若禁用代码中的规则 http://eslint.cn/docs/user-guide/configuring#disabling-rules-with-inline-comments
+
+// 推荐配置：https://github.com/vuejs/eslint-config-vue
+// 此模板是自己的总结 并不是以推荐配置修改的
 module.exports = {
     'env': {  // http://eslint.cn/docs/user-guide/configuring#specifying-environments
         'browser': true,

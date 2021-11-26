@@ -1,3 +1,5 @@
+// submissions
+
 // 网上找的函数
 function bigData(a,b){
     let res='', c=0;
