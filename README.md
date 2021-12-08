@@ -14,6 +14,8 @@
 - prettier 1 
 - vue-router 1
 - vuex 1
+- webpack 1
+- eslint-plugin-vue 1
 
 ## TODO：
 
@@ -22,6 +24,5 @@
 - vue-ssr 0
 - vue-cli 0
 - vue3 0
-- webpack 0
 - chainWebpack 0
 
