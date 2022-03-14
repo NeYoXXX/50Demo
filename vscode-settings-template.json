@@ -1,0 +1,16 @@
+{
+    "官网":"https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint",
+    "#":"是否在vscode窗口右下角显示ESLint",
+    "eslint.alwaysShowStatus": true, 
+    "##":"一组语言标识符，指定要对其执行验证的文件。这是一个旧的遗留设置，在正常情况下不再需要。默认为['javascript', 'javascriptreact'].",
+    "eslint.validate": [ 
+        "javascript",
+        "javascriptreact",
+        "html",
+        "vue"
+    ],
+    "editor.codeActionsOnSave": {
+        "#":"保存自动验证eslint格式",
+        "source.fixAll.eslint": true
+    }
+}
