@@ -18,8 +18,20 @@ export default class Watcher{
     addDep(dep){
         dep.addSub(this)
     }
-}
 
+    callback(val){
+      // 使用this.get()会陷入死循环
+      // val = this.get()
+      this.func.call(this,val,this.value)
+      this.value = val
+    }
+}
+/**
+ * 需要传入数据实例才能找出对应的值
+ * @param {*} vm 数据实例
+ * @param {*} str 
+ * @param {*} cb 
+ */
 export function watch(vm,str,cb){
     new Watcher(vm,str,cb)
 }

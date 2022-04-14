@@ -1,6 +1,6 @@
 export default class Dep{
 
-    // watcher 是作为中间值，随时变化
+    // target 是作为中间值，随时变化
     static target = null
 
     constructor(){
@@ -21,15 +21,15 @@ export default class Dep{
             val 是新值
         */
         for (const item of this.depArray) {
-            // item.zhixinghuidiao(val)
+            item.callback(val)
         }
     }
 }
 
 export function pushTarget (target) {
     Dep.target = target
-  }
+}
   
-  export function popTarget () {
-    // Dep.target = targetStack[targetStack.length - 1]
-  }
+export function popTarget () {
+// Dep.target = targetStack[targetStack.length - 1]
+}

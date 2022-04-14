@@ -11,13 +11,12 @@ let testData = {
     }
 }
 
-let depIns = null
 function defineReactive(data,key,value){
     /*
         value 参数作为了中间值
         针对每个 data 中的属性，创建一个 Dep 类
     */
-    depIns = new Dep()
+    let depIns = new Dep()
     Object.defineProperty(data,key,{
         configurable:true,
         enumerable:true,
@@ -40,7 +39,7 @@ watch(testData,'a',function(newVal,oldVal){
     console.log(newVal,oldVal);
 })
 
-// testData.a = 2
+testData.a = 2
 
 // 如何使用
 // console.log(testData.a);
@@ -48,4 +47,4 @@ watch(testData,'a',function(newVal,oldVal){
 // console.log(testData.a);
 // console.log(testData.a);
 // console.log(testData.a);
-console.log(depIns);
+// console.log(depIns);
