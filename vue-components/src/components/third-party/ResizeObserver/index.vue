@@ -30,6 +30,7 @@ export default {
     },
 
     addResizeHandlers() {
+      // Document.defaultView
       this._resizeObject.contentDocument.defaultView.addEventListener(
         "resize",
         this.compareAndNotify

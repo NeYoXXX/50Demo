@@ -51,11 +51,12 @@
 
 <script>
 import { ResizeObserver } from "../ResizeObserver/index.vue";
-import { ObserveVisibility } from "vue-observe-visibility";
+import { ObserveVisibility } from "../ObserverVisibility/index.vue";
+
 import ScrollParent from "scrollparent";
-import config from "../config";
+import config from "./config";
 import { props, simpleArray } from "./common";
-import { supportsPassive } from "../utils";
+import { supportsPassive } from "./utils";
 
 let uid = 0;
 
