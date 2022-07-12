@@ -10,9 +10,12 @@
     <script>
 
         let activeEffect
+        const effectStack = []
         const bucket = new WeakMap()
 
-        const data = {ok:false, text:'hello world'}
+        // const data = { ok:true, text:'hello world'}
+        // const data = { foo:true, bar:true}
+        const data = { foo:1 }
 
         const obj = new Proxy(data,{
             get(target, key){
@@ -25,28 +28,52 @@
             }
         })
 
-        function effect(fn){
+        function effect(fn, options = {}){
             const effectFn = () => {
                 cleanup(effectFn)
                 activeEffect = effectFn
-                fn()
+                effectStack.push(effectFn)
+                const res = fn()
+                effectStack.pop()
+                activeEffect = effectStack[effectStack.length - 1]
+                return res
             }
 
-            effectFn.deps = []
+            effectFn.options = options
 
-            effectFn()
+            effectFn.deps = []
+            if(!options.lazy){
+                effectFn()
+            }
+
+            return effectFn
         }
 
 
-        effect(()=>{
-            console.log('effect run');
-            document.body.innerText = obj.ok ? obj.text : 'not'
-        })
+        // effect(()=>{
+        //     console.log('effect run');
+        //     document.body.innerText = obj.ok ? obj.text : 'not'
+        // })
 
-        setTimeout(()=>{
-            obj.ok = false
-            obj.text = 'hello vue3'
-        },2000)
+        // let tmep1, temp2
+        // effect(function effectFn1(){
+        //     console.log('effectFn1 zhixing');
+
+        //     effect(function effectFn2(){
+        //         console.log('effectFn2 zhixing');
+
+        //         temp2 = obj.bar
+        //     })
+        //     tmep1 = obj.foo
+        // })
+
+        // setTimeout(()=>{
+        //     obj.bar = true
+        // },1000)
+
+        effect(()=>{console.log(obj.foo)},{scheduler(fn){setTimeout(fn)}})
+        obj.foo++
+        console.log('over')
 
         function track(target, key){
             if(!activeEffect) return target[key]
@@ -72,8 +99,19 @@
             const depsMap = bucket.get(target)
             if(!depsMap) return
             const effects = depsMap.get(key)
-            const effectsToRun = new Set(effects)
-            effectsToRun.forEach(effect => effect())
+            const effectsToRun = new Set()
+            effects && effects.forEach(effectFn => {
+                if(effectFn !== activeEffect){
+                    effectsToRun.add(effectFn)
+                }
+            })
+            effectsToRun.forEach(effect => {
+                if(effect.options.scheduler){
+                    effect.options.scheduler(effect)
+                }else{
+                    effect()
+                }
+            })
         }
 
         function cleanup(effectFn){
@@ -82,6 +120,87 @@
                 deps.delete(effectFn)
             }
             effectFn.deps.length = 0
+        }
+
+        function computed(getter){
+            
+            let value
+
+            let dirty = true
+
+            const effectFn = effect(getter,{
+                lazy:true,
+                scheduler(){
+                    dirty = true
+                    trigger(obj, 'value')
+                }
+            })
+
+            const obj = {
+                get value(){
+                    if(dirty){
+                        value = effectFn()
+                        dirty = false
+                    }
+                    track(obj, 'value')
+                    return value
+                }
+            }
+
+            return obj
+        }
+
+        function watch(source, cb, onInvalidate){
+            let getter
+
+            if(typeof source === 'function'){
+                getter = source
+            }else{
+                getter = () => traverse(source)
+            }
+            
+            let oldValue, newValue
+
+            let cleanup
+            function onInvalidate(fn){
+                cleanup = fn
+            }
+
+            const obj = () => {
+                newValue = effectFn()
+                if(cleanup){
+                    cleanup()
+                }
+                cb(newVlaue, oldValue, onInvalidate)
+                oldValue = newValue
+            }
+
+            const effectFn = effect(
+                () => getter(),
+                {
+                    lazy:true,
+                    scheduler:obj
+                }
+            )
+
+            if(options.immediate){
+                job()
+            }else{
+                oldValue = effectFn()
+            }
+            
+        }
+
+        function traverse(value, seen = new Set()){
+            if(typeof value !== 'object' || value === null || seen.has(value)) return
+            
+            seen.add(value)
+
+            for(const k in value){
+                traverse(value[k], seen)
+            }
+
+            return value
         }
     </script>
 </body>
