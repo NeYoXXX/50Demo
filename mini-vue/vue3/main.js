@@ -5,20 +5,67 @@ const bucket = new WeakMap()
 const data = { 
     ok:true,
     text:'test',
-    bar:false,
-    foo:1 
+    foo:1,
+    get bar(){
+        /*
+            在副作用函数中使用 obj.bar 时,即
+            effect(()=>{
+                console.log(obj.bar);
+            })
+            可以正常把 data 的 bar 访问器 getter 收集依赖
+            但在执行 return this.foo 这行代码时, this 的指向为 data 本身,并不是代理对象 obj 所以 this.foo 不会收集依赖 obj.foo++ 并没有任何效果
+            使用 Reflect.get(target, key, obj) 可已解决,把 data 的 bar 访问器 getter 中的 this 变为 obj 代理对象,运行 return this.foo 时触发收集依赖
+            再执行 obj.foo++  操作后可执行副作用函数 console.log(obj.bar);
+        */
+        return this.foo
+    }
+}
+const ITERATE_KEY = Symbol()
+
+const TriggerType = {
+    SET:'SET',
+    ADD:'ADD',
+    DELETE:'DELETE'
 }
 
-const obj = new Proxy(data,{
-    get(target, key){
-        track(target, key)
-        return target[key]
-    },
-    set(target, key, newVal){
-        target[key] = newVal
-        trigger(target, key)
-    }
-})
+const obj = reactive(data)
+
+function reactive(data){
+    return new Proxy(data,{
+        get(target, key){
+            track(target, key)
+            return Reflect.get(target,key, obj)
+        },
+        set(target, key, newVal, receiver){
+            const oldVlaue = target[key]
+            const type = Object.prototype.hasOwnProperty.call(target,key) ? TriggerType.SET : TriggerType.ADD
+    
+            Reflect.set(target, key, newVal, receiver)
+    
+            if(oldVlaue !== newVal && (oldVlaue === oldVlaue || newVal === newVal)){
+                trigger(target, key, type)
+            }
+        },
+        has(target, key){
+            track(target, key)
+            return Reflect.has(target, key)
+        },
+        ownKeys(target){
+            track(target, ITERATE_KEY)
+            return Reflect.ownKeys(target)
+        },
+        deleteProperty(target,key){
+            const hadKey = Object.prototype.hasOwnProperty.call(target,key)
+            const res = Reflect.deleteProperty(target,key)
+    
+            if(res && hadKey){
+                trigger(target, key, TriggerType.DELETE)
+            }
+    
+            return res
+        }
+    })
+}
 
 /**
  * 封装的副作用函数
@@ -81,16 +128,28 @@ function track(target, key){
  * @param {String} key 需要代理的对象的 key
  * @returns 
  */
-function trigger(target, key){
+function trigger(target, key, type){
     const depsMap = bucket.get(target)
     if(!depsMap) return
     const effects = depsMap.get(key)
+
     const effectsToRun = new Set()
     effects && effects.forEach(effectFn => {
         if(effectFn !== activeEffect){
             effectsToRun.add(effectFn)
         }
     })
+
+    if(type === TriggerType.ADD || type === TriggerType.DELETE){
+        // 获取 for..in 循环的副作用函数
+        const iterateEffects = depsMap.get(ITERATE_KEY)
+        iterateEffects && iterateEffects.forEach(effectFn=>{
+            if(effectFn !== activeEffect){
+                effectsToRun.add(effectFn)
+            }
+        })
+    }
+
     effectsToRun.forEach(effect => {
         // 是否调度，在此处不执行 副作用函数，副作用函数传给用户使用
         if(effect.options.scheduler){
@@ -152,28 +211,23 @@ function computed(getter){
     return objCom
 }
 
-function watch(source, cb, onInvalidate){
+function watch(source, cb, options){
     let getter
-
+    // getter 函数可以决定只绑定哪些响应式数据
     if(typeof source === 'function'){
         getter = source
     }else{
+        // 不是函数则对象中的key全部绑定
         getter = () => traverse(source)
     }
 
     let oldValue, newValue
-
-    let cleanup
-    function onInvalidate(fn){
-        cleanup = fn
-    }
-
-    const obj = () => {
+    // 收集的对象值触发 set 时，或 options.immediate = true 调用
+    const job = () => {
+        // 触发 set 即值已更新,则重新执行副作用函数的值为 newValue
         newValue = effectFn()
-        if(cleanup){
-            cleanup()
-        }
-        cb(newVlaue, oldValue, onInvalidate)
+        cb(newValue, oldValue)
+        // 执行完回调函数之后,新值变为老值
         oldValue = newValue
     }
 
@@ -181,13 +235,23 @@ function watch(source, cb, onInvalidate){
         () => getter(),
         {
             lazy:true,
-            scheduler:obj
+            scheduler:()=>{
+                if(options.flush === 'post'){
+                    // 当前宏任务执行完成之后再执行,实际组件更新后执行
+                    const p = Promise.resolve()
+                    p.then(job)
+                }else{
+                    job()
+                }
+            }
         }
     )
-
+    
     if(options.immediate){
+        // options.immediate = true 直接执行,收集的对象的值触发 set 时所执行的函数
         job()
     }else{
+        // 收集 getter 函数中对象返回 getter 函数的返回值，并计算调用watch函数即初始化watch函数时当前的值，也就是 oldValue
         oldValue = effectFn()
     }
 
@@ -199,31 +263,21 @@ function traverse(value, seen = new Set()){
     seen.add(value)
 
     for(const k in value){
+        // 自动绑定当前的副作用函数
         traverse(value[k], seen)
     }
 
     return value
 }
 
-// effect(()=>{
-//     obj.bar 
-// })
-
-
-// 两个副作用函数，computed 会创建一个
-const objCom = computed(()=>{
-    console.log(123);
-    return obj.bar + obj.foo
-})
 
 effect(()=>{
-    obj.ok
+    for (const key in obj) {
+        console.log(key);
+    }
 })
 
-effect(()=>{
-    console.log(objCom.value);
-})
+obj.foo = 2
 
-obj.bar++
 
-// obj bar effect
+
