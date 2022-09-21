@@ -30,7 +30,7 @@ const TriggerType = {
 
 const obj = reactive(data)
 
-function reactive(data){
+export function reactive(data){
     return new Proxy(data,{
         get(target, key){
             track(target, key)
@@ -73,7 +73,7 @@ function reactive(data){
  * @param {Object} options 配置对象
  * @returns 
  */
-function effect(fn, options = {}){
+export function effect(fn, options = {}){
     const effectFn = () => {
         cleanup(effectFn)
         activeEffect = effectFn
@@ -269,6 +269,8 @@ function traverse(value, seen = new Set()){
 
     return value
 }
+
+
 
 
 effect(()=>{
