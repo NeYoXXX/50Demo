@@ -46,6 +46,7 @@ function onMounted(fn){
     }
 }
 
+// 异步组件实现
 function defineAsyncComponent(options){
     if(typeof options === 'function'){
         options = {
@@ -55,19 +56,132 @@ function defineAsyncComponent(options){
 
     const { loader } = options
     let InnerComp = null
+    let retries = 0
+    function load(){
+        return loader()
+        .catch((err)=>{
+            if(options.onError){
+                return new Promise((resolve, reject)=>{
+                    const retry = () =>{
+                        resolve(load())
+                        retries++
+                    }
+                    const fail = () => reject(err)
+                    options.onError(retry,fail,retries)
+                })
+            }else{
+                throw error
+            }
+        })
+    }
+
+
+
     return {
         name:'AsyncComponentWrapper',
         setup(){
             const loaded = ref(false)
-            const timeout = ref(false)
-             
-            loader().then(c=>{
+            const error = shallowRef(null)
+            const loading = ref(false)
+
+            const loadingTimer = null
+            if(options.delay){
+                loadingTimer = setTimeout(()=>{
+                    loading.value = true
+                }, options.delay)
+            }else{
+                loading.value = true
+            }
+
+            load().then(c=>{
                 InnerComp = c
                 loaded.value = true
             })
-            return ()=>{
-                return loaded.value ? { type:InnerComp } : { type:Text, childern: ''}
+            .catch((err)=>{
+                error.value = err
+            })
+            .finally(()=>{
+                loading.value = false
+                clearTimeout(loadingTimer)
+            })
+
+            let timer = null
+            if(options.timeout){
+                timer = setTimeout(()=>{
+                    const err = new Error(`超时${options.timeout}`)
+                    error.value = err
+                }, options.timeout)
             }
+            onUmounted(()=>clearTimeout(timer))
+
+            const placeholder = { type: Text, childern:'' }
+
+            return ()=>{
+                if(loaded.value){
+                    return { type: InnerComp }
+                }else if(error.value && options.errorComponent){
+                    return { type: options.errorComponent, props: {error: error.value} }
+                }else if(loading.value && options.loadingComponent){
+                    return { type:options.loadingComponent }
+                }
+                return placeholder
+            }
+        }
+    }
+}
+
+// KeepAlive 实现
+const KeepAlive = {
+    // 标识
+    __isKeepAlive:true,
+    // 显示配置需要缓存的组件
+    props:{
+        include: RegExp,
+        exclude: RegExp
+    },
+    setup(props,{ slots }){
+        // 缓存对象，key:vnode.type value:vnode
+        const cache = new Map()
+        // 当前 KeepAlive 组件实例
+        const instance = currentInstance
+        const { move, createElement } = instance.keepAliveCtx
+        // 隐藏容器
+        const storageContainer = createElement('div')
+        instance._deActivate = (vnode) => {
+            move(vnode, storageContainer)
+        }
+        instance._activate = (vnode, container, anchor) => {
+            move(vnode, container, anchor)
+        }
+
+        return ()=>{
+            // KeepAlive 的默认插槽，就是需要被 KeepAlive 的组件
+            let rawVNode = slots.default()
+            // 如果不是组件则返回，非组件的虚拟节点无法被 KeepAlive
+            if(typeof rawVNode.type !== 'object'){
+                return rawVNode
+            }
+            const name = rawVNode.type.name
+            if(name && 
+                (
+                    (props.include && !props.include.test(name)) ||
+                    (props.exclude && props.exclude.test(name))
+                )){
+                    // 直接渲染内部组件，不进行缓存操作
+                    return rawVNode
+                }
+
+
+            const cachedVNode = cache.get(rawVNode.type)
+            if(cachedVNode){
+                rawVNode.component = cachedVNode.component
+                rawVNode.keptAlive = true
+            }else{
+                cache.set(rawVNode.type, rawVNode)
+            }
+            rawVNode.shouldKeepAlive = true
+            rawVNode.keepAliveInstance = instance
+            return rawVNode
         }
     }
 }
@@ -195,6 +309,14 @@ function createRenderer(options){
         if(vnode.type === Fragment){
             vnode.childern.forEach(item=>unmount(item))
             return
+        }else if(typeof vnode.type === 'object'){
+            if(vnode.shouldKeepAlive){
+                vnode.keepAliveInstance._deActivate(vnode)
+            }else{
+                // 对于组件的卸载，本质上是要卸载组件所渲染的内容，即 subTree
+                unmount(vnode.component.subTree)
+            }
+            return
         }
         const parent = vnode.el.parentNode
         if(parent){
@@ -220,9 +342,12 @@ function createRenderer(options){
             }else{
                 patchElement(n1, n2)
             }
-        }else if(typeof type === 'object'){
+        }else if(typeof type === 'object' || typeof type === 'function'){
             // 组件操作
             if(!n1){
+                if(n2.keptAlive){
+                    n2.keepAliveInstance._activate(n2, container, anchor)
+                }
                 mountComponent(n2, container, anchor)
             }else{
                 patchComponent(n1, n2, anchor)
@@ -251,7 +376,14 @@ function createRenderer(options){
     }
 
     function mountComponent(vnode, container, anchor){
+        const isFunctional = typeof vnode.type === 'function'
         const componentOptions = vnode.type
+        if(isFunctional){
+            componentOptions = {
+                render:vnode.type,
+                props: vnode.type.props
+            }
+        }
     
         const { render, data, setup, props:propsOption, beforeCreate, created, beforeMount, mounted, beforeUpdate, updated } = componentOptions
 
@@ -268,7 +400,19 @@ function createRenderer(options){
             // 组件渲染的内容
             subTree:null,
             slots,
-            mounted:[]
+            mounted:[],
+            // 只有 KeepAlive 组件下有
+            keepAliveCtx:null
+        }
+
+        const isKeepAlive = vnode.type.__isKeepAlive
+        if(isKeepAlive){
+            instance.keepAliveCtx = {
+                move(vnode, container, anchor){
+                    insert(vnode.component.subTree.el, container, anchor)
+                },
+                createElement
+            }
         }
 
         // 事件
