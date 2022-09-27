@@ -177,6 +177,7 @@ const KeepAlive = {
                 rawVNode.component = cachedVNode.component
                 rawVNode.keptAlive = true
             }else{
+                // 添加缓存，下次激活组件不执行挂载
                 cache.set(rawVNode.type, rawVNode)
             }
             rawVNode.shouldKeepAlive = true
@@ -185,6 +186,78 @@ const KeepAlive = {
         }
     }
 }
+
+// Teleport 实现
+const Teleport = {
+    __isTeleport: true,
+    process(n1, n2, container, anchor, internals){
+        const { patch, patchChildren, move } = internals
+        if(!n1){
+            // 获取挂载点
+            const target = typeof n2.props.to === 'string'
+                ? document.querySelector(n2.props.to)
+                : n2.props.to
+            // 渲染到指定挂载点
+            n2.childern.forEach(c=>patch(null, c, target, anchor))
+        }else{
+            patchChildren(n1, n2, container)
+            // 如果新旧 to 参数的值不同，则需要对内容进行移动
+            if(n2.props.to !== n1.props.to){
+                const newTarget = typeof n2.props.to === 'string'
+                    ? document.querySelector(n2.props.to)
+                    : n2.props.to
+                // 移动到新的容器
+                n2.childern.forEach(c => move(c, newTarget))
+            }
+        }
+    }
+}
+
+// Transition 实现
+const Transition = {
+    name: 'Transition',
+    setup(props, { slots }){
+        return ()=>{
+            // 默认插槽获取需要过度的元素
+            const innerVNode = slots.default()
+
+            // 钩子函数
+            innerVNode.Transition = {
+                beforeEnter(el){
+                    el.classList.add('enter-from')
+                    el.classList.add('enter-active')
+                },
+                enter(el){
+                    nextFrame(()=>{
+                        el.classList.remove('enter-from')
+                        el.classList.add('enter-to')
+                        el.addEventListener('transitionend',()=>{
+                            el.classList.remove('enter-to')
+                            el.classList.remove('enter-active')
+                        })
+                    })
+                },
+                leave(el, performRemove){
+                    el.classList.add('leave-from')
+                    el.classList.add('leave-active')
+                    document.body.offsetHeight
+                    nextFrame(()=>{
+                        el.classList.remove('leave-from')
+                        el.classList.add('leave-to')
+                        el.addEventListener('transitionend',()=>{
+                            el.classList.remove('leave-to')
+                            el.classList.remove('leave-active')
+                            performRemove()
+                        })
+                    })
+                }
+            }
+            // 需要过渡的元素
+            return innerVNode
+        }
+    }
+}
+
 
 const options = {
     createElement(tag){
@@ -301,11 +374,25 @@ function createRenderer(options){
             }
         }
 
+        // 判断一个 VNode 是否需要过渡
+        const needTransition = vnode.transition
+        if(needTransition){
+            // 调用钩子函数
+            vnode.transition.beforeEnter(el)
+        }
+
         insert(el, container, anchor)
+
+        if(needTransition){
+            // 调用钩子函数
+            vnode.transition.enter(el)
+        }
     }
 
     // vnode 卸载操作
     function unmount(vnode){
+        // 判断一个 VNode 是否需要过渡
+        const needTransition = vnode.transition
         if(vnode.type === Fragment){
             vnode.childern.forEach(item=>unmount(item))
             return
@@ -320,7 +407,12 @@ function createRenderer(options){
         }
         const parent = vnode.el.parentNode
         if(parent){
-            parent.removeChild(vnode.el)
+            const performRemove = ()=> parent.removeChild(vnode.el)
+            if(needTransition){
+                vnode.transition.leave(vnode.el, performRemove)
+            }else{
+                performRemove()
+            }
         }
     }
 
@@ -342,6 +434,19 @@ function createRenderer(options){
             }else{
                 patchElement(n1, n2)
             }
+        }else if(typeof type === 'object' && type.__isTeleport){
+            type.process(n1, n2, container, anchor, {
+                patch,
+                patchChildren,
+                unmount,
+                // 用来移动被 Teleport 的内容
+                move(vnode, container, anchor){
+                    insert(vnode.component 
+                        ? vnode.component.subTree.el  // 移动一个组件
+                        : vnode.el,  // 移动普通元素
+                        container, anchor)
+                }
+            })
         }else if(typeof type === 'object' || typeof type === 'function'){
             // 组件操作
             if(!n1){
